@@ -1,0 +1,394 @@
+library(shiny)
+
+# UI
+
+ui <- fluidPage(
+  
+  titlePanel("Stock Returns: OLS vs LMS Regression"),
+  
+  tabsetPanel(
+    
+    # Pick tab
+    
+    tabPanel(
+      "Pick",
+      
+      br(),
+      
+      fluidRow(
+        
+        # Dataset input
+        
+        column(
+          width = 4,
+          
+          wellPanel(
+            
+            h3("1. Upload Stock Return Data"),
+            
+            fileInput(
+              "file",
+              "Upload CSV File",
+              accept = ".csv"
+            ),
+            
+            helpText(
+              "Upload a CSV file containing stock returns.
+               Each row should represent one observation,
+               such as one trading day."
+            ),
+            
+            hr(),
+            
+            h3("2. Select Target Stock"),
+            
+            # Generated from uploaded dataset
+            uiOutput(
+              "response_selector"
+            ),
+            
+            helpText(
+              "Select the stock return that will be used
+               as the response variable."
+            ),
+            
+            hr(),
+            
+            h3("3. Select Predictor Stocks"),
+            
+            # Generated from uploaded dataset
+            uiOutput(
+              "explanatory_selector"
+            ),
+            
+            helpText(
+              "Select one or more stocks or market indices
+               to use as explanatory variables."
+            ),
+            
+            hr(),
+            
+            actionButton(
+              "fit_models",
+              "Fit Regression Models",
+              width = "100%"
+            )
+          )
+        ),
+        
+        
+        # Dataset preview
+        
+        column(
+          width = 8,
+          
+          h2("Dataset Preview"),
+          
+          p(
+            "The first 10 observations from the uploaded
+             stock-return dataset are displayed below."
+          ),
+          
+          tableOutput(
+            "data_preview"
+          ),
+          
+          hr(),
+          
+          h3("Example Model"),
+          
+          p(
+            "For example, if AAPL is selected as the target
+             and SPY, QQQ and XLK are selected as predictors:"
+          ),
+          
+          wellPanel(
+            
+            h4(
+              "AAPL Return = Intercept +"
+            ),
+            
+            p(
+              "a(SPY Return) + b(QQQ Return) + c(XLK Return)"
+            )
+          ),
+          
+          h3("Variable Roles"),
+          
+          p(
+            strong("Response variable: "),
+            "the stock whose returns are being modelled."
+          ),
+          
+          p(
+            strong("Explanatory variables: "),
+            "stocks or market indices whose returns are
+             used to explain movements in the target stock."
+          )
+        )
+      )
+    ),
+    
+    
+    # Regression tab
+    
+    tabPanel(
+      "Regression",
+      
+      br(),
+      
+      h2("OLS vs LMS Regression"),
+      
+      p(
+        "This section will compare Ordinary Least Squares
+         regression with Least Median of Squares robust
+         regression."
+      ),
+      
+      hr(),
+      
+      
+      # OLS & LMS info
+      
+      fluidRow(
+        
+        column(
+          width = 6,
+          
+          wellPanel(
+            
+            h3("Ordinary Least Squares"),
+            
+            p(
+              "OLS chooses regression coefficients that
+               minimise the sum of squared residuals."
+            ),
+            
+            strong("Objective:"),
+            
+            p(
+              "Minimise the Sum of Squared Residuals (RSS)"
+            ),
+            
+            tableOutput(
+              "ols_coefficients"
+            )
+          )
+        ),
+        
+        
+        column(
+          width = 6,
+          
+          wellPanel(
+            
+            h3("Least Median of Squares"),
+            
+            p(
+              "LMS is a robust regression approach that
+               minimises the median of the squared residuals."
+            ),
+            
+            strong("Objective:"),
+            
+            p(
+              "Minimise the Median of Squared Residuals"
+            ),
+            
+            tableOutput(
+              "lms_coefficients"
+            )
+          )
+        )
+      ),
+      
+      hr(),
+      
+
+      # Model comparison
+      
+      h2("Model Comparison"),
+      
+      p(
+        "This visualisation will compare the fitted behaviour
+         of the OLS and LMS models."
+      ),
+      
+      plotOutput(
+        "regression_plot",
+        height = "450px"
+      ),
+      
+      hr(),
+      
+ 
+      # Actual vs Fitted
+      
+      h2("Actual vs Fitted Returns"),
+      
+      p(
+        "This plot will compare the observed return of the
+         target stock with the returns predicted by each
+         regression model."
+      ),
+      
+      plotOutput(
+        "fitted_plot",
+        height = "400px"
+      ),
+      
+      hr(),
+      
+      
+      # Residuals
+      
+      h2("Residual Comparison"),
+      
+      p(
+        "A residual is the difference between the observed
+         stock return and the fitted stock return."
+      ),
+      
+      plotOutput(
+        "residual_plot",
+        height = "400px"
+      ),
+      
+      hr(),
+      
+      
+      # Model Results
+      
+      h2("Regression Results"),
+      
+      tableOutput(
+        "model_comparison"
+      ),
+      
+      hr(),
+      
+      
+      # Interpretation
+      
+      h2("How to Interpret the Results"),
+      
+      wellPanel(
+        
+        h3("Regression Coefficients"),
+        
+        p(
+          "Each coefficient describes the relationship between
+           a predictor stock's return and the target stock's
+           return while the other predictors are held constant."
+        ),
+        
+        hr(),
+        
+        h3("OLS vs LMS"),
+        
+        p(
+          "If the data contain few unusual observations,
+           OLS and LMS may produce similar fitted models."
+        ),
+        
+        p(
+          "If extreme stock returns are present, OLS may be
+           influenced more strongly by those observations,
+           while LMS is designed to be more resistant to them."
+        )
+      ),
+      
+      hr(),
+      
+      p(
+        strong("Disclaimer: "),
+        "This application is an educational demonstration
+         of regression methodology and does not provide
+         financial or investment advice."
+      )
+    )
+  )
+)
+
+
+# Server logic
+
+server <- function(input, output, session) {
+  
+  # Read the uploaded CSV
+  
+  dataset <- reactive({
+    
+    # Do nothing until a file has been uploaded
+    req(input$file)
+    
+    # Read the uploaded CSV file
+    data <- read.csv(
+      input$file$datapath,
+      header = TRUE
+    )
+    
+    return(data)
+  })
+  
+  
+  # Dataset Preview
+  
+  output$data_preview <- renderTable({
+    
+    data <- dataset()
+    
+    # Display the first 10 observations
+    head(
+      data,
+      10
+    )
+  })
+  
+  
+  # Response variable
+  
+  output$response_selector <- renderUI({
+    
+    data <- dataset()
+    
+    # Only use numeric variables
+    numeric_variables <- names(data)[
+      sapply(data, is.numeric)
+    ]
+    
+    selectInput(
+      "response",
+      "Target Stock / Response Variable:",
+      choices = numeric_variables
+    )
+  })
+  
+  
+  # Explanatory variables
+  
+  output$explanatory_selector <- renderUI({
+    
+    data <- dataset()
+    
+    # Only use numeric variables
+    numeric_variables <- names(data)[
+      sapply(data, is.numeric)
+    ]
+    
+    selectInput(
+      "explanatory",
+      "Predictor Stocks / Explanatory Variables:",
+      choices = numeric_variables,
+      multiple = TRUE
+    )
+  })
+}
+
+
+# Runs the application
+
+shinyApp(
+  ui = ui,
+  server = server
+)
